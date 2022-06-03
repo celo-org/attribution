@@ -5,7 +5,7 @@ import pandas_gbq
 '''
 pull in rpl_transaction data, and place into pandas dataframe
 '''
-def get_transactions():
+def get_transactions(context):
     print("pulling latest transaction data from rpl_transactions")
     bqclient = bigquery.Client()
 
