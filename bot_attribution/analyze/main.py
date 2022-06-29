@@ -6,14 +6,14 @@ import hashlib
 
 bqclient = bigquery.Client()
 def analyze(contracts_df, signatures_df, callers_df):
-    print('CONTRACTS')
-    print(contracts_df.to_string())
+    # print('CONTRACTS')
+    # print(contracts_df.to_string())
 
-    print('SIGNATURES')
-    print(signatures_df.to_string())
+    # print('SIGNATURES')
+    # print(signatures_df.to_string())
 
-    print('CALLERS')
-    print(callers_df.to_string())
+    # print('CALLERS')
+    # print(callers_df.to_string())
 
     '''
     Tag known bots. Acts as a 'seed' for the heuristic
