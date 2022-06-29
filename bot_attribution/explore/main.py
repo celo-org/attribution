@@ -46,9 +46,15 @@ def explore(input_df):
         limit 10
     """
 
-    signatures_df = sqldf(signatures_query)
+
+    signatures_df = sqldf(signatures_query)    
     print(" * signatures_df *" )
     print(signatures_df.to_string())
+
+    # tags = {'location': 'London','tag': {'suspicious':1, 'bot':0.95}}
+    # tag_df = pd.json_normalize(tags,max_level=0)
+    # print(" * tag_df *" )
+    # print(tag_df.to_string())
 
     '''
     Tag smart contracts that these functions belong to as “suspicious”.
@@ -74,7 +80,8 @@ def explore(input_df):
     print(" *** finding frequent functions callers *** ")
     callers_query = """
         select          
-            from_address_hash, 
+            from_address_hash as caller,
+            to_address_hash, 
             'suspicious' as tag 
         from signatures_df
         limit 10
@@ -161,6 +168,6 @@ def write_df(input_df, table_name):
 if __name__ == '__main__':
     df_results = get_transactions(context='context')
     contracts_df, signatures_df, callers_df = explore(df_results)
-    write_df(contracts_df, 'contracts')
-    write_df(signatures_df, 'signatures') 
+    # write_df(contracts_df, 'contracts')
+    # write_df(signatures_df, 'signatures') 
     write_df(callers_df, 'callers')
