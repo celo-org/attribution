@@ -1,6 +1,0 @@
-requests==2.27.1
-google-cloud-BigQuery==3.0.1
-pytz
-pandas
-pandas_gbq
-pandasql
