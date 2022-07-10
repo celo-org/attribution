@@ -60,7 +60,6 @@ def analyze(contracts_df, signatures_df, callers_df):
 
     '''
     If a signature matches one of the known bot signatures confidence = 0.6
-    
     '''
 
 
@@ -120,9 +119,6 @@ def analyze(contracts_df, signatures_df, callers_df):
     bot_caller_df['tags'] = bot_caller_df['tags'].astype(str)
     print(bot_caller_df.to_string())
 
-
-
-
     '''
     If a smart contract was deployed by the creator of a smart contract that 
     was classified as a bot before confidence = 0.4.
@@ -132,7 +128,7 @@ def analyze(contracts_df, signatures_df, callers_df):
 
 
 
-def get_tagged_data():
+def get_tagged_data(data, context):
     # get tables generated from exploration stage
     contracts_query = """
     select *
@@ -168,7 +164,7 @@ def write_df(input_df, table_name):
 
 
 if __name__ == '__main__':
-    contracts, signatures, callers = get_tagged_data()
+    contracts, signatures, callers = get_tagged_data(request, context)
     bot_contracts, bot_signatures, bot_callers = analyze(contracts, signatures, callers)
     write_df(bot_contracts, 'bot_contracts')
     write_df(bot_signatures, 'bot_signatures')
