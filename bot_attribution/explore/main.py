@@ -9,7 +9,7 @@ bqclient = bigquery.Client()
 '''
 pull in rpl_transaction data, and place into pandas dataframe
 '''
-def get_transactions(request, context):
+def get_transactions():
     print(" *** pulling latest transaction data from rpl_transactions *** ")
     
     # Download query results.
@@ -163,6 +163,13 @@ def write_df(input_df, table_name):
     pandas_gbq.to_gbq(input_df, table_id, project_id=project_id, if_exists='append')
     print("successfully wrote data to {}".format(project_id + '.' + table_id))
 
+
+def run(request='request', context='context'):
+    df_results = get_transactions()
+    contracts_df, signatures_df, callers_df = explore(df_results)
+    write_df(contracts_df, 'contracts')
+    write_df(signatures_df, 'signatures') 
+    write_df(callers_df, 'callers')
 
 
 if __name__ == '__main__':
