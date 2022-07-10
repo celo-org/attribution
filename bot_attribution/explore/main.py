@@ -166,7 +166,7 @@ def write_df(input_df, table_name):
 
 
 if __name__ == '__main__':
-    df_results = get_transactions(request, context='context')
+    df_results = get_transactions(request='request', context='context')
     contracts_df, signatures_df, callers_df = explore(df_results)
     write_df(contracts_df, 'contracts')
     write_df(signatures_df, 'signatures') 
