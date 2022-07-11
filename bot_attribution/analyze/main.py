@@ -128,7 +128,7 @@ def analyze(contracts_df, signatures_df, callers_df):
 
 
 
-def get_tagged_data(data, context):
+def get_tagged_data():
     # get tables generated from exploration stage
     contracts_query = """
     select *
@@ -162,9 +162,16 @@ def write_df(input_df, table_name):
     pandas_gbq.to_gbq(input_df, table_id, project_id=project_id, if_exists='append')
     print("successfully wrote data to {}".format(project_id + '.' + table_id))
 
-
-if __name__ == '__main__':
+def run(request='request', context='context'):
     contracts, signatures, callers = get_tagged_data(request, context)
+    bot_contracts, bot_signatures, bot_callers = analyze(contracts, signatures, callers)
+    write_df(bot_contracts, 'contracts')
+    write_df(bot_signatures, 'signatures')
+    write_df(bot_callers, 'callers')
+
+# for testing purposes
+if __name__ == '__main__':
+    contracts, signatures, callers = get_tagged_data()
     bot_contracts, bot_signatures, bot_callers = analyze(contracts, signatures, callers)
     write_df(bot_contracts, 'bot_contracts')
     write_df(bot_signatures, 'bot_signatures')
