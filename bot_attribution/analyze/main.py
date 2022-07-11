@@ -6,33 +6,18 @@ import hashlib
 
 bqclient = bigquery.Client()
 def analyze(contracts_df, signatures_df, callers_df):
-    # print('CONTRACTS')
-    # print(contracts_df.to_string())
-
-    # print('SIGNATURES')
-    # print(signatures_df.to_string())
-
-    # print('CALLERS')
-    # print(callers_df.to_string())
-
     '''
     Tag known bots. Acts as a 'seed' for the heuristic
     '''
     known_bots_query = """
         select
-            from_address_hash,
-            to_address_hash,
-            signature,
-            invocations,
-            'bot' as tag
+            *
         from signatures_df
         order by invocations desc
         limit 2
     """
 
     known_bots_df = sqldf(known_bots_query)
-    # print('KNOWN BOTS')
-    # print(known_bots_df.to_string())
 
     '''
     All signatures that belong to a smart contract that was classified as bot 
@@ -40,23 +25,21 @@ def analyze(contracts_df, signatures_df, callers_df):
     '''
     bot_signature_query = """
         select distinct
+            from_address_hash,
+            to_address_hash,
             signature,
+            invocations,
             'bot' as tag,
             '1' as confidence_level
         from signatures_df 
         where to_address_hash in {}
     """.format(tuple(known_bots_df['to_address_hash'].to_list()))
 
-    # print(bot_signature_query)
     bot_signature_df = sqldf(bot_signature_query)
     bot_signature_df['confidence_level'] = bot_signature_df['confidence_level']\
                                                                     .astype(float)
     bot_signature_df['tags'] = bot_signature_df[['tag', 'confidence_level']].apply(tuple, axis=1)
     bot_signature_df['tags'] = bot_signature_df['tags'].astype(str)
-    
-    # print(' ')
-    # print('bot_signature_df')
-    # print(bot_signature_df.to_string())
 
     '''
     If a signature matches one of the known bot signatures confidence = 0.6
@@ -105,6 +88,7 @@ def analyze(contracts_df, signatures_df, callers_df):
     bot_caller_query = """
         select 
             caller,
+            to_address_hash,
             'bot' as tag,
             '1' as confidence_level
         from callers_df 
@@ -115,24 +99,31 @@ def analyze(contracts_df, signatures_df, callers_df):
                                                                     .astype(float)
     
     bot_caller_df['tags'] = bot_caller_df[['tag', 'confidence_level']].apply(tuple, axis=1)
-    # print('DEBUG 115')
     bot_caller_df['tags'] = bot_caller_df['tags'].astype(str)
-    print(bot_caller_df.to_string())
 
     '''
     If a smart contract was deployed by the creator of a smart contract that 
     was classified as a bot before confidence = 0.4.
     '''
 
+    bot_contract_df = bot_contract_df.drop(columns=['confidence_level', 'tag'])
+
+    bot_signature_df = bot_signature_df.drop(columns=['confidence_level', 'tag'])
+    bot_signature_df = bot_signature_df.fillna(0)
+    bot_signature_df['invocations'] = bot_signature_df['invocations'].astype(int)
+    
+    bot_caller_df = bot_caller_df.drop(columns=['confidence_level', 'tag'])
+
     return bot_contract_df, bot_signature_df, bot_caller_df
 
 
-
+'''
+get data generated from explore stage
+'''
 def get_tagged_data():
-    # get tables generated from exploration stage
     contracts_query = """
     select *
-    from `celo-testnet-production.abhinav.contracts`
+    from `celo-testnet-production.abhinav.suspicious_contracts`
     """
     contracts_df = (bqclient.query(contracts_query)
                     .result().to_dataframe(create_bqstorage_client=True))
@@ -140,7 +131,7 @@ def get_tagged_data():
     
     signatures_query = """
     select *
-    from `celo-testnet-production.abhinav.signatures`
+    from `celo-testnet-production.abhinav.suspicious_signatures`
     """
     signatures_df = (bqclient.query(signatures_query)
                     .result().to_dataframe(create_bqstorage_client=True))
@@ -148,14 +139,76 @@ def get_tagged_data():
     
     callers_query = """
     select *
-    from `celo-testnet-production.abhinav.callers`
+    from `celo-testnet-production.abhinav.suspicious_callers`
     """
     callers_df = (bqclient.query(callers_query)
                     .result().to_dataframe(create_bqstorage_client=True))
 
     return contracts_df, signatures_df, callers_df
 
-def write_df(input_df, table_name):
+# def write_df(input_df, table_name):
+#     print('** writing data to BQ **')
+#     project_id = 'celo-testnet-production'
+#     table_id = 'abhinav.' + table_name
+
+#     if table_name == 'signatures':
+#         print('writing to ' + str(table_name))
+#         for index, row in input_df.iterrows():
+#             signatures_query = """
+#                 update `{}`
+#                 set tags = "{}"
+#                 where from_address_hash = '{}'
+#                 and to_address_hash = '{}'
+#                 and signature = '{}' 
+#                 """.format(project_id + '.' + table_id, 
+#                            str(row['tags']), 
+#                            row['from_address_hash'], 
+#                            row['to_address_hash'], 
+#                            row['signature'])
+            
+#             query_job = bqclient.query(signatures_query)
+
+#             # Wait for query job to finish.
+#             query_job.result()
+#             print(f"DML query modified {query_job.num_dml_affected_rows} rows.")
+#     elif table_name == 'contracts':
+#         print('writing to ' + str(table_name))
+#         print('number of rows: ' + str(len(input_df)))
+#         for index, row in input_df.iterrows():
+#             contracts_query = """
+#                 update `{}`
+#                 set tags = "{}"
+#                 where to_address_hash = '{}'
+#                 """.format(project_id + '.' + table_id, 
+#                            str(row['tags']), 
+#                            row['to_address_hash'])
+            
+#             query_job = bqclient.query(contracts_query)
+
+#             # Wait for query job to finish.
+#             query_job.result()
+#             print(f"DML query modified {query_job.num_dml_affected_rows} rows.")
+#     elif table_name == 'callers':
+#         print('writing to ' + str(table_name))
+#         for index, row in input_df.iterrows():
+#             callers_query = """
+#                 update `{}`
+#                 set tags = "{}"
+#                 where caller = '{}'
+#                 and to_address_hash = '{}'
+#                 """.format(project_id + '.' + table_id, 
+#                            str(row['tags']), 
+#                            row['caller'],
+#                            row['to_address_hash'])
+#             query_job = bqclient.query(callers_query)
+
+#             # Wait for query job to finish.
+#             query_job.result()
+#             print(f"DML query modified {query_job.num_dml_affected_rows} rows.")
+    
+#     print("successfully wrote data to {}".format(project_id + '.' + table_id))
+
+def write_df2(input_df, table_name):
     project_id = 'celo-testnet-production'
     table_id = 'abhinav.' + table_name
 
@@ -165,15 +218,15 @@ def write_df(input_df, table_name):
 def run(request='request', context='context'):
     contracts, signatures, callers = get_tagged_data()
     bot_contracts, bot_signatures, bot_callers = analyze(contracts, signatures, callers)
-    write_df(bot_contracts, 'contracts')
-    write_df(bot_signatures, 'signatures')
-    write_df(bot_callers, 'callers')
+    write_df2(bot_contracts, 'bot_contracts')
+    write_df2(bot_signatures, 'bot_signatures')
+    write_df2(bot_callers, 'bot_callers')
 
 # for testing purposes
 if __name__ == '__main__':
     contracts, signatures, callers = get_tagged_data()
     bot_contracts, bot_signatures, bot_callers = analyze(contracts, signatures, callers)
-    write_df(bot_contracts, 'bot_contracts')
-    write_df(bot_signatures, 'bot_signatures')
-    write_df(bot_callers, 'bot_callers')
+    write_df2(bot_contracts, 'bot_contracts')
+    write_df2(bot_signatures, 'bot_signatures')
+    write_df2(bot_callers, 'bot_callers')
 

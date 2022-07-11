@@ -133,8 +133,6 @@ def explore(input_df):
     print('successfully explored transaction data')
     return contracts_df, signatures_df, callers_df
 
-
-# function to write a df to BQ
 def write_df(input_df, table_name):
     project_id = 'celo-testnet-production'
     table_id = 'abhinav.' + table_name
@@ -146,14 +144,14 @@ def write_df(input_df, table_name):
 def run(request='request', context='context'):
     df_results = get_transactions()
     contracts_df, signatures_df, callers_df = explore(df_results)
-    write_df(contracts_df, 'contracts')
-    write_df(signatures_df, 'signatures') 
-    write_df(callers_df, 'callers')
+    write_df(contracts_df, 'suspicious_contracts')
+    write_df(signatures_df, 'suspicious_signatures') 
+    write_df(callers_df, 'suspicious_callers')
 
 # for testing purposes
 if __name__ == '__main__':
     df_results = get_transactions()
     contracts_df, signatures_df, callers_df = explore(df_results)
-    # write_df(contracts_df, 'contracts_test')
-    # write_df(signatures_df, 'signatures_test') 
-    # write_df(callers_df, 'callers_test')
+    write_df(contracts_df, 'suspicious_contracts')
+    write_df(signatures_df, 'suspicious_signatures') 
+    write_df(callers_df, 'suspicious_callers')
