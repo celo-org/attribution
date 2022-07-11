@@ -39,22 +39,18 @@ def explore(input_df):
             to_address_hash, 
             SUBSTR(`input`, 0, 10) as signature,
             COUNT(1) as invocations,
-            'suspicious' as tag 
+            '1' as confidence_level,
+            'suspicious' as tag
         from input_df
         group by 1, 2, 3 
         order by 4 DESC
         limit 10
     """
 
-
-    signatures_df = sqldf(signatures_query)    
-    # print(" * signatures_df *" )
-    # print(signatures_df.to_string())
-
-    # tags = {'location': 'London','tag': {'suspicious':1, 'bot':0.95}}
-    # tag_df = pd.json_normalize(tags,max_level=0)
-    # print(" * tag_df *" )
-    # print(tag_df.to_string())
+    signatures_df = sqldf(signatures_query)
+    signatures_df['tags'] = signatures_df[['tag', 'confidence_level']].apply(tuple, axis=1)
+    signatures_df['tags'] = signatures_df['tags'].astype(str)
+    
 
     '''
     Tag smart contracts that these functions belong to as “suspicious”.
@@ -64,14 +60,11 @@ def explore(input_df):
     contract_query = """
         select distinct
             to_address_hash,
-            tag 
+            tags
         from signatures_df
     """
 
     contracts_df = sqldf(contract_query)
-    # print(" * contracts_df * ")
-    # print(contracts_df.to_string())
-
 
     '''
     Tag all the addresses that call these functions a lot of times as “suspicious”.
@@ -82,15 +75,12 @@ def explore(input_df):
         select          
             from_address_hash as caller,
             to_address_hash, 
-            'suspicious' as tag 
+            tags 
         from signatures_df
         limit 10
     """
     
     callers_df = sqldf(callers_query)
-    # print(" * callers_df * ")
-    # print(callers_df.to_string())
-
 
     '''
     Tag creators of “suspicious” smart contracts as “suspicious”.
@@ -104,23 +94,19 @@ def explore(input_df):
         where created_contract_address_hash in {}
     """.format(tuple(contracts_df['to_address_hash'].tolist()))
 
-    # print(suspicious_contracts_query)
-
-    suspicious_contracts_df = (bqclient.query(suspicious_contracts_query)
-                    .result().to_dataframe(create_bqstorage_client=True))
-    # print(" * suspicious_contracts_df * ")    
+    suspicious_contracts_df = bqclient.query(suspicious_contracts_query)\
+                                .result().to_dataframe(create_bqstorage_client=True)
 
     creators_query = """
         select 
             from_address_hash,
+            '1' as confidence_level,
             'suspicious' as tag
         from suspicious_contracts_df
     """
-    # where created_contract_address_hash in ((select to_address_hash from contracts_df))
     creators_df = sqldf(creators_query)
-    # print(" * creators_df * ")
-    # print(creators_df.to_string())
-
+    creators_df['tags'] = creators_df[['tag', 'confidence_level']].apply(tuple, axis=1)
+    creators_df['tags'] = creators_df['tags'].astype(str)
 
     '''
     Tag all other smart contracts created by creators of “suspicious” smart contracts as “suspicious”.
@@ -130,29 +116,22 @@ def explore(input_df):
     suspicious_creator_contract_query = """
         select
             created_contract_address_hash as to_address_hash,
+            '1' as confidence_level,
             'suspicious' as tag
         from suspicious_contracts_df where from_address_hash in ((select from_address_hash from creators_df))
     """
 
     suspicious_creator_contract_df = sqldf(suspicious_creator_contract_query)
-    # print(" * suspicious_creator_contract_df * ")
-    # print(suspicious_creator_contract_df.to_string())
+    suspicious_creator_contract_df['tags'] = suspicious_creator_contract_df[['tag', 'confidence_level']].apply(tuple, axis=1)
+    suspicious_creator_contract_df['tags'] = suspicious_creator_contract_df['tags'].astype(str)
+    
+    contracts_df = pd.concat([contracts_df, suspicious_creator_contract_df])
 
-    contracts_df = contracts_df.append(suspicious_creator_contract_df)
-    # print("RETURNING")
-    # print(" * contracts_df * ")
-    # print(contracts_df.to_string())
-
-    # print(" * signatures_df * ")
-    # print(signatures_df.to_string())
-
-    # print(" * callers_df * ")
-    # print(callers_df.to_string())
+    contracts_df = contracts_df.drop(columns=['confidence_level', 'tag'])
+    signatures_df = signatures_df.drop(columns=['confidence_level', 'tag'])
 
     print('successfully explored transaction data')
     return contracts_df, signatures_df, callers_df
-
-
 
 
 # function to write a df to BQ
@@ -171,10 +150,10 @@ def run(request='request', context='context'):
     write_df(signatures_df, 'signatures') 
     write_df(callers_df, 'callers')
 
-
+# for testing purposes
 if __name__ == '__main__':
-    df_results = get_transactions(request='request', context='context')
+    df_results = get_transactions()
     contracts_df, signatures_df, callers_df = explore(df_results)
-    write_df(contracts_df, 'contracts')
-    write_df(signatures_df, 'signatures') 
-    write_df(callers_df, 'callers')
+    # write_df(contracts_df, 'contracts_test')
+    # write_df(signatures_df, 'signatures_test') 
+    # write_df(callers_df, 'callers_test')
