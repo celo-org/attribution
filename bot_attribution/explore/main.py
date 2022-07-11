@@ -48,8 +48,8 @@ def explore(input_df):
 
 
     signatures_df = sqldf(signatures_query)    
-    print(" * signatures_df *" )
-    print(signatures_df.to_string())
+    # print(" * signatures_df *" )
+    # print(signatures_df.to_string())
 
     # tags = {'location': 'London','tag': {'suspicious':1, 'bot':0.95}}
     # tag_df = pd.json_normalize(tags,max_level=0)
@@ -69,8 +69,8 @@ def explore(input_df):
     """
 
     contracts_df = sqldf(contract_query)
-    print(" * contracts_df * ")
-    print(contracts_df.to_string())
+    # print(" * contracts_df * ")
+    # print(contracts_df.to_string())
 
 
     '''
@@ -88,8 +88,8 @@ def explore(input_df):
     """
     
     callers_df = sqldf(callers_query)
-    print(" * callers_df * ")
-    print(callers_df.to_string())
+    # print(" * callers_df * ")
+    # print(callers_df.to_string())
 
 
     '''
@@ -104,11 +104,11 @@ def explore(input_df):
         where created_contract_address_hash in {}
     """.format(tuple(contracts_df['to_address_hash'].tolist()))
 
-    print(suspicious_contracts_query)
+    # print(suspicious_contracts_query)
 
     suspicious_contracts_df = (bqclient.query(suspicious_contracts_query)
                     .result().to_dataframe(create_bqstorage_client=True))
-    print(" * suspicious_contracts_df * ")    
+    # print(" * suspicious_contracts_df * ")    
 
     creators_query = """
         select 
@@ -118,8 +118,8 @@ def explore(input_df):
     """
     # where created_contract_address_hash in ((select to_address_hash from contracts_df))
     creators_df = sqldf(creators_query)
-    print(" * creators_df * ")
-    print(creators_df.to_string())
+    # print(" * creators_df * ")
+    # print(creators_df.to_string())
 
 
     '''
@@ -135,19 +135,19 @@ def explore(input_df):
     """
 
     suspicious_creator_contract_df = sqldf(suspicious_creator_contract_query)
-    print(" * suspicious_creator_contract_df * ")
-    print(suspicious_creator_contract_df.to_string())
+    # print(" * suspicious_creator_contract_df * ")
+    # print(suspicious_creator_contract_df.to_string())
 
     contracts_df = contracts_df.append(suspicious_creator_contract_df)
-    print("RETURNING")
-    print(" * contracts_df * ")
-    print(contracts_df.to_string())
+    # print("RETURNING")
+    # print(" * contracts_df * ")
+    # print(contracts_df.to_string())
 
-    print(" * signatures_df * ")
-    print(signatures_df.to_string())
+    # print(" * signatures_df * ")
+    # print(signatures_df.to_string())
 
-    print(" * callers_df * ")
-    print(callers_df.to_string())
+    # print(" * callers_df * ")
+    # print(callers_df.to_string())
 
     print('successfully explored transaction data')
     return contracts_df, signatures_df, callers_df
