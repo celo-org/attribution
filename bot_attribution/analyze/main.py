@@ -163,7 +163,7 @@ def write_df(input_df, table_name):
     print("successfully wrote data to {}".format(project_id + '.' + table_id))
 
 def run(request='request', context='context'):
-    contracts, signatures, callers = get_tagged_data(request, context)
+    contracts, signatures, callers = get_tagged_data()
     bot_contracts, bot_signatures, bot_callers = analyze(contracts, signatures, callers)
     write_df(bot_contracts, 'contracts')
     write_df(bot_signatures, 'signatures')
