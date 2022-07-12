@@ -30,6 +30,8 @@ def explore(transactions_df):
     '''
     Identify the most frequently called function signatures. Tag them as “suspicious”.
     most frequently = top 10?
+    
+    just group by signature or (to_address_hash and signature)
     '''
     print(' ')
     print(" *** finding frequently called signatures *** ")
@@ -125,11 +127,14 @@ def explore(transactions_df):
     suspicious_creator_contract_df = sqldf(suspicious_creator_contract_query)
     suspicious_creator_contract_df['tags'] = suspicious_creator_contract_df[['tag', 'confidence_level']].apply(tuple, axis=1)
     suspicious_creator_contract_df['tags'] = suspicious_creator_contract_df['tags'].astype(str)
+    suspicious_creator_contract_df.drop_duplicates()
     
     contracts_df = pd.concat([contracts_df, suspicious_creator_contract_df])
-
     contracts_df = contracts_df.drop(columns=['confidence_level', 'tag'])
+    contracts_df.drop_duplicates()
+
     signatures_df = signatures_df.drop(columns=['confidence_level', 'tag'])
+    signatures_df.drop_duplicates()
 
     print('successfully explored transaction data')
     return contracts_df, signatures_df, callers_df

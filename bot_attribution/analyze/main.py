@@ -14,7 +14,7 @@ def analyze(contracts_df, signatures_df, callers_df):
             *
         from signatures_df
         order by invocations desc
-        limit 2
+        limit 3
     """
 
     known_bots_df = sqldf(known_bots_query)
@@ -95,6 +95,10 @@ def analyze(contracts_df, signatures_df, callers_df):
         where to_address_hash in {}
     """.format(tuple(known_bots_df['to_address_hash']))
     bot_caller_df = sqldf(bot_caller_query)
+
+    print('line 99')
+    print(bot_caller_df.to_string())
+
     bot_caller_df['confidence_level'] = bot_caller_df['confidence_level']\
                                                                     .astype(float)
     
@@ -109,16 +113,23 @@ def analyze(contracts_df, signatures_df, callers_df):
     
     bot_contract_df = bot_contract_df.drop(columns=['confidence_level', 'tag'])
     bot_contract_df.insert(0, 'timestamp', pd.to_datetime('now').replace(microsecond=0))
+    bot_contract_df.drop_duplicates()
 
-    print(bot_contract_df.to_string())
+
+    # print(bot_contract_df.to_string())
 
     bot_signature_df = bot_signature_df.drop(columns=['confidence_level', 'tag'])
     bot_signature_df = bot_signature_df.fillna(0)
     bot_signature_df['invocations'] = bot_signature_df['invocations'].astype(int)
     bot_signature_df.insert(0, 'timestamp', pd.to_datetime('now').replace(microsecond=0))
+    bot_signature_df.drop_duplicates()
     
     bot_caller_df = bot_caller_df.drop(columns=['confidence_level', 'tag'])
     bot_caller_df.insert(0, 'timestamp', pd.to_datetime('now').replace(microsecond=0))
+    bot_caller_df.drop_duplicates()
+
+    # print('line 127')
+    # print(bot_caller_df.to_string())
 
     return bot_contract_df, bot_signature_df, bot_caller_df
 
@@ -232,7 +243,9 @@ def run(request='request', context='context'):
 if __name__ == '__main__':
     contracts, signatures, callers = get_tagged_data()
     bot_contracts, bot_signatures, bot_callers = analyze(contracts, signatures, callers)
-    write_df2(bot_contracts, 'contract_attributes')
-    write_df2(bot_signatures, 'signature_attributes')
+    # write_df2(bot_contracts, 'contract_attributes')
+    # write_df2(bot_signatures, 'signature_attributes')
+    # print('line 244')
+    # print(bot_callers.to_string())
     write_df2(bot_callers, 'caller_attributes')
 
