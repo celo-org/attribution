@@ -195,9 +195,9 @@ def write_df(transactions_df, table_name, schema):
 def run(request='request', context='context'):
     df_results = get_transactions()
     contracts_df, signatures_df, callers_df = explore(df_results)
-    write_df(contracts_df, 'suspicious_contracts')
-    write_df(signatures_df, 'suspicious_signatures') 
-    write_df(callers_df, 'suspicious_callers')
+    write_df(contracts_df, 'contracts', contracts_schema)
+    write_df(signatures_df, 'signatures', signatures_schema) 
+    write_df(callers_df, 'callers', callers_schema)
 
 # for testing purposes
 if __name__ == '__main__':

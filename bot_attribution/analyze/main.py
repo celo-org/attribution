@@ -211,8 +211,8 @@ def write_temp_table(input_df, project, dataset, table):
 def run(request='request', context='context'):
     contracts, signatures, callers = get_tagged_data()
     bot_contracts, bot_signatures, bot_callers = analyze(contracts, signatures, callers)
-    write_df(bot_contracts, 'contract')
-    write_df(bot_signatures, 'signature')
+    write_df(bot_contracts, 'contracts')
+    write_df(bot_signatures, 'signatures')
     write_df(bot_callers, 'callers')
 
 # for testing purposes
