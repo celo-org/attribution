@@ -26,7 +26,7 @@ def get_transactions():
     
 
 
-def explore(input_df):
+def explore(transactions_df):
     '''
     Identify the most frequently called function signatures. Tag them as “suspicious”.
     most frequently = top 10?
@@ -40,8 +40,9 @@ def explore(input_df):
             SUBSTR(`input`, 0, 10) as signature,
             COUNT(1) as invocations,
             '1' as confidence_level,
-            'suspicious' as tag
-        from input_df
+            'suspicious' as tag,
+            block_timestamp
+        from transactions_df
         group by 1, 2, 3 
         order by 4 DESC
         limit 10
@@ -133,11 +134,11 @@ def explore(input_df):
     print('successfully explored transaction data')
     return contracts_df, signatures_df, callers_df
 
-def write_df(input_df, table_name):
+def write_df(transactions_df, table_name):
     project_id = 'celo-testnet-production'
     table_id = 'abhinav.' + table_name
 
-    pandas_gbq.to_gbq(input_df, table_id, project_id=project_id, if_exists='append')
+    pandas_gbq.to_gbq(transactions_df, table_id, project_id=project_id, if_exists='append')
     print("successfully wrote data to {}".format(project_id + '.' + table_id))
 
 
