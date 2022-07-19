@@ -6,6 +6,7 @@ import hashlib
 import random
 import datetime
 import pytz
+from difflib import SequenceMatcher
 
 bqclient = bigquery.Client()
 def analyze(contracts_df, signatures_df, callers_df):
@@ -44,6 +45,22 @@ def analyze(contracts_df, signatures_df, callers_df):
     '''
     If a signature matches one of the known bot signatures confidence = 0.6
     '''
+    signature_match_query = """
+        select distinct
+            b.signature,
+            b.invocations,
+            'bot' as tag,
+            '0.6' as confidence_level
+        from signatures_df s
+        join bot_signature_df b
+        on s.signature = b.signature
+        where b.confidence_level >= 0.9
+    """
+
+    signature_match_df = sqldf(signature_match_query)
+    signature_match_df['confidence_level'] = signature_match_df['confidence_level'].astype(float)
+    signature_match_df['tags'] = signature_match_df[['tag', 'confidence_level']].apply(tuple, axis=1)
+    signature_match_df['tags'] = signature_match_df['tags'].astype(str)
 
     '''
     If an MD5 hash of the byte code of a suspicious smart contract equals 
@@ -69,11 +86,32 @@ def analyze(contracts_df, signatures_df, callers_df):
     bot_contract_df['tags'] = bot_contract_df[['tag', 'confidence_level']].apply(tuple, axis=1)
     bot_contract_df['tags'] = bot_contract_df['tags'].astype(str) 
 
+    contracts_q = """
+        select 
+            *
+        from contracts_df
+        where tags = "('suspicious', '1')"
+    """
+    contracts_df = sqldf(contracts_q)
+
     '''
     If the byte code of a suspicious smart contract is similar to the byte 
     code of a smart contract that was classified as a bot before
     (with 60% similarity and higher) confidence = 0.7
     '''
+    bot_contract_list = list(bot_contract_df['to_address_hash'].drop_duplicates())
+    
+    for index, row in contracts_df.iterrows():
+        score = 0 
+        for bot_contract in bot_contract_list:            
+            best_match3 = round(SequenceMatcher(None, row['to_address_hash'], bot_contract).ratio(), 2)
+            score = max(score, best_match3)
+        if score > 0.6:
+            contracts_df.loc[index, 'tags'] = f"('bot', '0.7')"
+    
+    contracts_df = contracts_df.drop_duplicates()
+    callers_df = callers_df.drop_duplicates(subset=['caller', 'to_address_hash', 'tags'])
+    signatures_df = signatures_df.drop_duplicates()
 
     '''
     Mark all callers of the bot smart contract as bots with confidence 1 
@@ -83,37 +121,111 @@ def analyze(contracts_df, signatures_df, callers_df):
     bot_caller_query = """
         select 
             caller,
-            to_address_hash,
+            c.to_address_hash,
             'bot' as tag,
-            '1' as confidence_level
-        from callers_df 
-        where to_address_hash in {}
+            case when s.invocations > 200 then '1' else '0.6' end as confidence_level 
+        from callers_df c
+        left join signatures_df s
+        on s.to_address_hash = c.to_address_hash
+        where c.to_address_hash in {}
     """.format(tuple(known_bots_df['to_address_hash']))
     bot_caller_df = sqldf(bot_caller_query)
 
-    bot_caller_df['confidence_level'] = bot_caller_df['confidence_level']\
-                                                                    .astype(float)    
+    bot_caller_df['confidence_level'] = bot_caller_df['confidence_level'].astype(float)    
     bot_caller_df['tags'] = bot_caller_df[['tag', 'confidence_level']].apply(tuple, axis=1)
     bot_caller_df['tags'] = bot_caller_df['tags'].astype(str)
 
     '''
-    If a smart contract was deployed by the creator of a smart contract that 
-    was classified as a bot before confidence = 0.4.
+    Inhumane frequency - 10 txs in 1 minute
+    confidence_level = 0.7
     '''
-    
-    bot_contract_df = bot_contract_df.drop(columns=['confidence_level', 'tag'])
-    bot_contract_df.insert(0, 'timestamp', pd.to_datetime('now').replace(microsecond=0))
-    bot_contract_df = bot_contract_df.drop_duplicates()
+    transaction_query_string = """
+        with invocation_table as 
+            (select 
+                to_address_hash, 
+                from_address_hash,
+                SUBSTR(`input`, 0, 10) as signature,
+                COUNT(1) as invocations,
+                datetime_trunc(block_timestamp, MINUTE) as block_timestamp_minute
+            from `celo-testnet-production.analytics_general.transactions`
+            where block_timestamp > TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL -1 DAY)
+            group by 1, 2, 3, 5)
+        select *
+        from invocation_table
+    """
 
-    bot_signature_df = bot_signature_df.drop(columns=['confidence_level', 'tag'])
+    transaction_df = (bqclient.query(transaction_query_string)
+                    .result().to_dataframe(create_bqstorage_client=True))
+    
+    match_caller_query = """
+        select
+            b.caller,
+            b.to_address_hash,
+            'bot' as tag,
+            '0.7' as confidence_level
+        from bot_caller_df b
+        left join transaction_df t
+        on b.caller = t.from_address_hash
+        where tags = "('suspicious', '1')"
+    """
+    match_caller_df = sqldf(match_caller_query)
+
+    if not match_caller_df.empty:
+        bot_caller_df = pd.concat([bot_caller_df, match_caller_df])
+
+    '''
+    have a hardcoded whitelist? maybe as a table
+
+    join all the dataframes we have against this df/table, if match then remove
+    '''
+    smart_contract_query = """
+        select distinct
+            id,
+            name,
+            address_hash
+        from celo-testnet-production.analytics_general.smart_contracts
+    """
+    smart_contract_df = (bqclient.query(smart_contract_query)
+                    .result().to_dataframe(create_bqstorage_client=True))
+    
+    bot_contract_df = bot_caller_df.merge(smart_contract_df, 
+                                          left_on='to_address_hash', 
+                                          right_on='address_hash', 
+                                          how='left', 
+                                          indicator=True)
+    if not bot_contract_df.empty:
+        bot_contract_df.drop(bot_contract_df[bot_contract_df._merge=='both'].index, inplace=True)
+
+    bot_signature_df = bot_signature_df.merge(smart_contract_df, 
+                                          left_on='to_address_hash', 
+                                          right_on='address_hash', 
+                                          how='left', 
+                                          indicator=True)
+    if not bot_signature_df.empty:
+        bot_signature_df.drop(bot_signature_df[bot_signature_df._merge=='both'].index, inplace=True)
+
+    
+    bot_caller_df = bot_caller_df.merge(smart_contract_df, 
+                                          left_on='to_address_hash', 
+                                          right_on='address_hash', 
+                                          how='left', 
+                                          indicator=True)
+    if not bot_caller_df.empty:
+        bot_caller_df.drop(bot_caller_df[bot_caller_df._merge=='both'].index, inplace=True)
+
+    bot_contract_df = bot_contract_df.drop(columns=['confidence_level', 'tag', 'id', 'name', 'address_hash', '_merge'])
+    bot_contract_df.insert(0, 'timestamp', pd.to_datetime('now').replace(microsecond=0))
+    bot_contract_df = bot_contract_df.drop_duplicates(subset=['to_address_hash'])
+
+    bot_signature_df = bot_signature_df.drop(columns=['confidence_level', 'tag', 'id', 'name', 'address_hash', '_merge'])
     bot_signature_df = bot_signature_df.fillna(0)
     bot_signature_df['invocations'] = bot_signature_df['invocations'].astype(int)
     bot_signature_df.insert(0, 'timestamp', pd.to_datetime('now').replace(microsecond=0))
-    bot_signature_df = bot_signature_df.drop_duplicates()
+    bot_signature_df = bot_signature_df.drop_duplicates(subset=['to_address_hash'])
     
-    bot_caller_df = bot_caller_df.drop(columns=['confidence_level', 'tag'])
+    bot_caller_df = bot_caller_df.drop(columns=['confidence_level', 'tag', 'id', 'name', 'address_hash', '_merge'])
     bot_caller_df.insert(0, 'timestamp', pd.to_datetime('now').replace(microsecond=0))
-    bot_caller_df = bot_caller_df.drop_duplicates()
+    bot_caller_df = bot_caller_df.drop_duplicates(subset=['to_address_hash'])
 
     return bot_contract_df, bot_signature_df, bot_caller_df
 
@@ -123,21 +235,24 @@ get data generated from explore stage
 def get_tagged_data():
     contracts_query = """
     select *
-    from `celo-testnet-production.abhinav.contracts`
+    from `celo-testnet-production.analytics_attribution.contracts`
+    where tags like '%suspicious%' 
     """
     contracts_df = (bqclient.query(contracts_query)
                     .result().to_dataframe(create_bqstorage_client=True))
 
     signatures_query = """
     select *
-    from `celo-testnet-production.abhinav.signatures`
+    from `celo-testnet-production.analytics_attribution.signatures`
+    where tags like '%suspicious%'
     """
     signatures_df = (bqclient.query(signatures_query)
                     .result().to_dataframe(create_bqstorage_client=True))
     
     callers_query = """
     select *
-    from `celo-testnet-production.abhinav.callers`
+    from `celo-testnet-production.analytics_attribution.callers`
+    where tags like '%suspicious%'
     """
     callers_df = (bqclient.query(callers_query)
                     .result().to_dataframe(create_bqstorage_client=True))
@@ -146,14 +261,14 @@ def get_tagged_data():
 
 def write_df(input_df, table):
     project = 'celo-testnet-production'
-    dataset = 'abhinav'
+    dataset = 'analytics_attribution'
     temp_table = write_temp_table(input_df, project, dataset, table)
 
     query = ""
     if table == 'callers':
         query = f"""
-            merge into {project}.{dataset}.{table} as t
-            using {project}.{temp_table} as s
+            merge into `{project}.{dataset}.{table}` as t
+            using `{project}.{temp_table}` as s
             on t.caller = s.caller
             and t.to_address_hash = s.to_address_hash
             and t.caller = s.caller
@@ -165,8 +280,8 @@ def write_df(input_df, table):
         """
     elif table == 'signatures':
         query = f"""
-            merge into {project}.{dataset}.{table} as t
-            using {project}.{temp_table} as s
+            merge into `{project}.{dataset}.{table}` as t
+            using `{project}.{temp_table}` as s
             on t.signature = s.signature
             and t.to_address_hash = s.to_address_hash
             when matched then
@@ -177,8 +292,8 @@ def write_df(input_df, table):
         """
     elif table == 'contracts':
         query = f"""
-            merge into {project}.{dataset}.{table} as t
-            using {project}.{temp_table} as s
+            merge into `{project}.{dataset}.{table}` as t
+            using `{project}.{temp_table}` as s
             on t.to_address_hash = s.to_address_hash
             when matched then
                 update set tags = s.tags, updated_at = CURRENT_TIMESTAMP()
@@ -211,86 +326,27 @@ def write_temp_table(input_df, project, dataset, table):
 def run(request='request', context='context'):
     contracts, signatures, callers = get_tagged_data()
     bot_contracts, bot_signatures, bot_callers = analyze(contracts, signatures, callers)
-    write_df(bot_contracts, 'contracts')
-    write_df(bot_signatures, 'signatures')
-    write_df(bot_callers, 'callers')
+    
+    if not bot_contracts.empty:
+        write_df(bot_contracts, 'contracts')
+    
+    if not bot_signatures.empty:
+        write_df(bot_signatures, 'signatures')
+
+    if not bot_callers.empty:
+        write_df(bot_callers, 'callers')
+
 
 # for testing purposes
 if __name__ == '__main__':
     contracts, signatures, callers = get_tagged_data()
     bot_contracts, bot_signatures, bot_callers = analyze(contracts, signatures, callers)
-    write_df(bot_contracts, 'contracts')
-    write_df(bot_signatures, 'signatures')
-    write_df(bot_callers, 'callers')
-
-'''
-# def write_df2(input_df, table_name):
-#     project_id = 'celo-testnet-production'
-#     table_id = 'abhinav.' + table_name
-
-#     pandas_gbq.to_gbq(input_df, table_id, project_id=project_id, if_exists='append')
-#     print("successfully wrote data to {}".format(project_id + '.' + table_id))
-
-
-# def write_df(input_df, table_name):
-#     print('** writing data to BQ **')
-#     project_id = 'celo-testnet-production'
-#     table_id = 'abhinav.' + table_name
-
-#     if table_name == 'signatures':
-#         print('writing to ' + str(table_name))
-#         for index, row in input_df.iterrows():
-#             signatures_query = """
-#                 update `{}`
-#                 set tags = "{}"
-#                 where from_address_hash = '{}'
-#                 and to_address_hash = '{}'
-#                 and signature = '{}' 
-#                 """.format(project_id + '.' + table_id, 
-#                            str(row['tags']), 
-#                            row['from_address_hash'], 
-#                            row['to_address_hash'], 
-#                            row['signature'])
-            
-#             query_job = bqclient.query(signatures_query)
-
-#             # Wait for query job to finish.
-#             query_job.result()
-#             print(f"DML query modified {query_job.num_dml_affected_rows} rows.")
-#     elif table_name == 'contracts':
-#         print('writing to ' + str(table_name))
-#         print('number of rows: ' + str(len(input_df)))
-#         for index, row in input_df.iterrows():
-#             contracts_query = """
-#                 update `{}`
-#                 set tags = "{}"
-#                 where to_address_hash = '{}'
-#                 """.format(project_id + '.' + table_id, 
-#                            str(row['tags']), 
-#                            row['to_address_hash'])
-            
-#             query_job = bqclient.query(contracts_query)
-
-#             # Wait for query job to finish.
-#             query_job.result()
-#             print(f"DML query modified {query_job.num_dml_affected_rows} rows.")
-#     elif table_name == 'callers':
-#         print('writing to ' + str(table_name))
-#         for index, row in input_df.iterrows():
-#             callers_query = """
-#                 update `{}`
-#                 set tags = "{}"
-#                 where caller = '{}'
-#                 and to_address_hash = '{}'
-#                 """.format(project_id + '.' + table_id, 
-#                            str(row['tags']), 
-#                            row['caller'],
-#                            row['to_address_hash'])
-#             query_job = bqclient.query(callers_query)
-
-#             # Wait for query job to finish.
-#             query_job.result()
-#             print(f"DML query modified {query_job.num_dml_affected_rows} rows.")
     
-#     print("successfully wrote data to {}".format(project_id + '.' + table_id))
-'''
+    if not bot_contracts.empty:
+        write_df(bot_contracts, 'contracts')
+    
+    if not bot_signatures.empty:
+        write_df(bot_signatures, 'signatures')
+    
+    if not bot_callers.empty:
+        write_df(bot_callers, 'callers')
