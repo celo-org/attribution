@@ -1,0 +1,12 @@
+steps:
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  args:
+  - gcloud
+  - functions
+  - deploy
+  - attribution
+  - --region=us-west1
+  - --source=.
+  - --trigger-http
+  - --runtime=RUNTIME
+  dir: "bot_attribution_explore"
