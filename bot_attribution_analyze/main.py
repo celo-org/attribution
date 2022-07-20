@@ -11,7 +11,7 @@ from difflib import SequenceMatcher
 bqclient = bigquery.Client()
 def analyze(contracts_df, signatures_df, callers_df):
     '''
-    Tag known bots. Acts as a 'seed' for the heuristic
+    Tag known bot. Acts as a 'seed' for the heuristic
     '''
     known_bots_query = """
         select
