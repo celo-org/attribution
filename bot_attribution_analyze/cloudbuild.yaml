@@ -10,5 +10,5 @@ steps:
   - --trigger-http
   - --runtime=RUNTIME
   dir: "bot_attribution_analyze"
-  options:
-    logging: CLOUD_LOGGING_ONLY
+options:
+  logging: CLOUD_LOGGING_ONLY
