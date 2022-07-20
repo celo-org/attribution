@@ -26,7 +26,7 @@ signatures_schema = [{'name': 'to_address_hash', 'type': 'STRING'},
                     {'name': 'updated_at', 'type': 'TIMESTAMP'}]
 
 '''
-pull in rpl_transaction data, and place into pandas dataframe
+pull in rpl_transaction data, and place into a pandas dataframe
 '''
 def get_transactions():
     print(" *** pulling latest transaction data from rpl_transactions *** ")
