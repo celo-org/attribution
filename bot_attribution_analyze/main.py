@@ -255,7 +255,7 @@ def write_df(input_df, table):
     temp_table = write_temp_table(input_df, project, dataset, table)
 
     query = ""
-    if table == 'callers-test':
+    if table == 'callers':
         query = f"""
             merge into `{project}.{dataset}.{table}` as t
             using `{project}.{temp_table}` as s
@@ -268,7 +268,7 @@ def write_df(input_df, table):
                 insert (caller, to_address_hash, tags)
                 values (caller, to_address_hash, tags)
         """
-    elif table == 'signatures-test':
+    elif table == 'signatures':
         query = f"""
             merge into `{project}.{dataset}.{table}` as t
             using `{project}.{temp_table}` as s
@@ -280,7 +280,7 @@ def write_df(input_df, table):
                 insert (to_address_hash, signature, invocations, tags)
                 values (to_address_hash, signature, invocations, tags)
         """
-    elif table == 'contracts-test':
+    elif table == 'contracts':
         query = f"""
             merge into `{project}.{dataset}.{table}` as t
             using `{project}.{temp_table}` as s
