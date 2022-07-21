@@ -67,7 +67,6 @@ def explore(transactions_df):
         from transactions_df
         group by 1
         order by 2 DESC
-        limit 1000
     """
     frequent_signatures_df = sqldf(frequent_signatures_query)
 
@@ -124,7 +123,6 @@ def explore(transactions_df):
         from transactions_df
         group by 1, 2, 3 
         order by 4 DESC
-        limit 250
     """
     signatures_df = sqldf(signatures_query)
 
@@ -168,7 +166,6 @@ def explore(transactions_df):
             block_timestamp,
             updated_at
         from signatures_df
-        limit 500
     """
     
     callers_df = sqldf(callers_query)
@@ -290,6 +287,6 @@ def run(request='request', context='context'):
 if __name__ == '__main__':
     df_results = get_transactions()
     contracts_df, signatures_df, callers_df = explore(df_results)
-    write_df(contracts_df, 'contracts', contracts_schema)
-    write_df(signatures_df, 'signatures', signatures_schema) 
-    write_df(callers_df, 'callers', callers_schema)
+    write_df(contracts_df, 'contracts-test', contracts_schema)
+    write_df(signatures_df, 'signatures-test', signatures_schema) 
+    write_df(callers_df, 'callers-test', callers_schema)
