@@ -29,7 +29,7 @@ signatures_schema = [{'name': 'to_address_hash', 'type': 'STRING'},
 pull in rpl_transaction data, and place into a pandas dataframe
 '''
 def get_transactions():
-    print(" *** pulling latest transaction data from archive_us.transactions *** ")
+    print(" *** pulling latest transactions data from archive_us.transactions *** ")
     
     query_string = """
         select *
