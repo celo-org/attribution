@@ -135,7 +135,7 @@ def explore(transactions_df):
     signatures_df['tags'] = signatures_df['tags'].astype(str)
 
     '''
-    Tag smart contracts that these functions belong to as “suspicious”.
+    Tag smart contracts that functions belong to as “suspicious”.
     '''
     print(' ')
     print(" *** finding smart contracts of frequent functions *** ")
