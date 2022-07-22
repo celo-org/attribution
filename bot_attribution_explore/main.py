@@ -34,7 +34,7 @@ def get_transactions():
     query_string = """
         select *
         from `celo-testnet-production.analytics_general.transactions`
-        where block_timestamp > TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL -1 DAY)
+        where block_timestamp > TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL -7 DAY)
     """
 
     df = (bqclient.query(query_string)
@@ -65,7 +65,7 @@ def explore(transactions_df):
             'suspicious' as tag,
             block_timestamp
         from transactions_df
-        group by 1
+        group by 1, 2, 4, 5, 6
         order by 2 DESC
     """
     frequent_signatures_df = sqldf(frequent_signatures_query)
@@ -287,6 +287,6 @@ def run(request='request', context='context'):
 if __name__ == '__main__':
     df_results = get_transactions()
     contracts_df, signatures_df, callers_df = explore(df_results)
-    write_df(contracts_df, 'contracts-test', contracts_schema)
-    write_df(signatures_df, 'signatures-test', signatures_schema) 
-    write_df(callers_df, 'callers-test', callers_schema)
+    write_df(contracts_df, 'contracts-test3', contracts_schema)
+    write_df(signatures_df, 'signatures-test3', signatures_schema) 
+    write_df(callers_df, 'callers-test3', callers_schema)

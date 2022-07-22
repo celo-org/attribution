@@ -144,7 +144,7 @@ def analyze(contracts_df, signatures_df, callers_df):
     bot_caller_df['tags'] = bot_caller_df['tags'].astype(str)
 
     '''
-    Inhumane frequency - 10 txs in 1 minute
+    Inhumane frequency - 5 txs in 1 minute
     confidence_level = 0.7
     '''
     transaction_query_string = """
@@ -255,7 +255,7 @@ def write_df(input_df, table):
     temp_table = write_temp_table(input_df, project, dataset, table)
 
     query = ""
-    if table == 'callers':
+    if table == 'callers-test3':
         query = f"""
             merge into `{project}.{dataset}.{table}` as t
             using `{project}.{temp_table}` as s
@@ -268,7 +268,7 @@ def write_df(input_df, table):
                 insert (caller, to_address_hash, tags)
                 values (caller, to_address_hash, tags)
         """
-    elif table == 'signatures':
+    elif table == 'signatures-test3':
         query = f"""
             merge into `{project}.{dataset}.{table}` as t
             using `{project}.{temp_table}` as s
@@ -280,7 +280,7 @@ def write_df(input_df, table):
                 insert (to_address_hash, signature, invocations, tags)
                 values (to_address_hash, signature, invocations, tags)
         """
-    elif table == 'contracts':
+    elif table == 'contracts-test3':
         query = f"""
             merge into `{project}.{dataset}.{table}` as t
             using `{project}.{temp_table}` as s
@@ -333,10 +333,10 @@ if __name__ == '__main__':
     bot_contracts, bot_signatures, bot_callers = analyze(contracts, signatures, callers)
     
     if not bot_contracts.empty:
-        write_df(bot_contracts, 'contracts-test')
+        write_df(bot_contracts, 'contracts-test3')
     
     if not bot_signatures.empty:
-        write_df(bot_signatures, 'signatures-test')
+        write_df(bot_signatures, 'signatures-test3')
     
     if not bot_callers.empty:
-        write_df(bot_callers, 'callers-test')
+        write_df(bot_callers, 'callers-test3')
