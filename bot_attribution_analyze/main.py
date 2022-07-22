@@ -155,7 +155,7 @@ def analyze(contracts_df, signatures_df, callers_df):
                 SUBSTR(`input`, 0, 10) as signature,
                 COUNT(1) as invocations,
                 datetime_trunc(block_timestamp, MINUTE) as block_timestamp_minute
-            from `celo-testnet-production.analytics_general.transactions`
+            from `celo-testnet-production.archive_us.transactions`
             where block_timestamp > TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL -7 DAY)
             group by 1, 2, 3, 5)
         select *
@@ -197,7 +197,7 @@ def analyze(contracts_df, signatures_df, callers_df):
             id,
             name,
             address_hash
-        from celo-testnet-production.analytics_general.smart_contracts
+        from celo-testnet-production.archive_us.smart_contracts
     """
     smart_contract_df = (bqclient.query(smart_contract_query)
                     .result().to_dataframe(create_bqstorage_client=True))
@@ -255,7 +255,7 @@ def write_df(input_df, table):
     temp_table = write_temp_table(input_df, project, dataset, table)
 
     query = ""
-    if table == 'callers-test3':
+    if table == 'callers':
         query = f"""
             merge into `{project}.{dataset}.{table}` as t
             using `{project}.{temp_table}` as s
@@ -268,7 +268,7 @@ def write_df(input_df, table):
                 insert (caller, to_address_hash, tags)
                 values (caller, to_address_hash, tags)
         """
-    elif table == 'signatures-test3':
+    elif table == 'signatures':
         query = f"""
             merge into `{project}.{dataset}.{table}` as t
             using `{project}.{temp_table}` as s
@@ -280,7 +280,7 @@ def write_df(input_df, table):
                 insert (to_address_hash, signature, invocations, tags)
                 values (to_address_hash, signature, invocations, tags)
         """
-    elif table == 'contracts-test3':
+    elif table == 'contracts':
         query = f"""
             merge into `{project}.{dataset}.{table}` as t
             using `{project}.{temp_table}` as s
@@ -333,10 +333,10 @@ if __name__ == '__main__':
     bot_contracts, bot_signatures, bot_callers = analyze(contracts, signatures, callers)
     
     if not bot_contracts.empty:
-        write_df(bot_contracts, 'contracts-test3')
+        write_df(bot_contracts, 'contracts')
     
     if not bot_signatures.empty:
-        write_df(bot_signatures, 'signatures-test3')
+        write_df(bot_signatures, 'signatures')
     
     if not bot_callers.empty:
-        write_df(bot_callers, 'callers-test3')
+        write_df(bot_callers, 'callers')

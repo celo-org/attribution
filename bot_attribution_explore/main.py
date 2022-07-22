@@ -29,12 +29,12 @@ signatures_schema = [{'name': 'to_address_hash', 'type': 'STRING'},
 pull in rpl_transaction data, and place into a pandas dataframe
 '''
 def get_transactions():
-    print(" *** pulling latest transaction data from analytics_general.transactions *** ")
+    print(" *** pulling latest transaction data from archive_us.transactions *** ")
     
     query_string = """
         select *
-        from `celo-testnet-production.analytics_general.transactions`
-        where block_timestamp > TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL -7 DAY)
+        from `celo-testnet-production.archive_us.transactions`
+        where block_timestamp > TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL -3 DAY)
     """
 
     df = (bqclient.query(query_string)
@@ -67,6 +67,7 @@ def explore(transactions_df):
         from transactions_df
         group by 1, 2, 4, 5, 6
         order by 2 DESC
+        limit 10
     """
     frequent_signatures_df = sqldf(frequent_signatures_query)
 
@@ -185,7 +186,7 @@ def explore(transactions_df):
 
     suspicious_contracts_query = """
         SELECT *
-        FROM `celo-testnet-production.analytics_general.transactions`
+        FROM `celo-testnet-production.archive_us.transactions`
         where created_contract_address_hash in {}
         and block_timestamp > TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL -7 DAY)
     """.format(tuple(contracts_df['to_address_hash'].tolist()))
@@ -287,6 +288,6 @@ def run(request='request', context='context'):
 if __name__ == '__main__':
     df_results = get_transactions()
     contracts_df, signatures_df, callers_df = explore(df_results)
-    write_df(contracts_df, 'contracts-test3', contracts_schema)
-    write_df(signatures_df, 'signatures-test3', signatures_schema) 
-    write_df(callers_df, 'callers-test3', callers_schema)
+    write_df(contracts_df, 'contracts', contracts_schema)
+    write_df(signatures_df, 'signatures', signatures_schema) 
+    write_df(callers_df, 'callers', callers_schema)
