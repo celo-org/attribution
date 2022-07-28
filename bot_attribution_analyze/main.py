@@ -155,7 +155,7 @@ def analyze(contracts_df, signatures_df, callers_df):
                 SUBSTR(`input`, 0, 10) as signature,
                 COUNT(1) as invocations,
                 datetime_trunc(block_timestamp, MINUTE) as block_timestamp_minute
-            from `celo-testnet-production.archive_us.transactions`
+            from `celo-testnet-production.1_raw.transactions`
             where block_timestamp > TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL -7 DAY)
             group by 1, 2, 3, 5)
         select *
@@ -197,7 +197,7 @@ def analyze(contracts_df, signatures_df, callers_df):
             id,
             name,
             address_hash
-        from celo-testnet-production.archive_us.smart_contracts
+        from celo-testnet-production.1_raw.smart_contracts
     """
     smart_contract_df = (bqclient.query(smart_contract_query)
                     .result().to_dataframe(create_bqstorage_client=True))

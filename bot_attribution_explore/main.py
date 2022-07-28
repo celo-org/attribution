@@ -29,11 +29,11 @@ signatures_schema = [{'name': 'to_address_hash', 'type': 'STRING'},
 pull in rpl_transaction data, and place into a pandas dataframe
 '''
 def get_transactions():
-    print(" *** pulling latest transactions data from archive_us.transactions *** ")
+    print(" *** pulling latest transactions data from 1_raw.transactions *** ")
     
     query_string = """
         select *
-        from `celo-testnet-production.archive_us.transactions`
+        from `celo-testnet-production.1_raw.transactions`
         where block_timestamp > TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL -3 DAY)
     """
 
@@ -186,7 +186,7 @@ def explore(transactions_df):
 
     suspicious_contracts_query = """
         SELECT *
-        FROM `celo-testnet-production.archive_us.transactions`
+        FROM `celo-testnet-production.1_raw.transactions`
         where created_contract_address_hash in {}
         and block_timestamp > TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL -7 DAY)
     """.format(tuple(contracts_df['to_address_hash'].tolist()))
