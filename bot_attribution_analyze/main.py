@@ -225,7 +225,7 @@ get data generated from explore stage
 def get_tagged_data():
     contracts_query = """
     select *
-    from `celo-testnet-production.analytics_attribution.contracts`
+    from `celo-testnet-production.1_attributions.contracts`
     where tags like '%suspicious%' 
     """
     contracts_df = (bqclient.query(contracts_query)
@@ -233,7 +233,7 @@ def get_tagged_data():
 
     signatures_query = """
     select *
-    from `celo-testnet-production.analytics_attribution.signatures`
+    from `celo-testnet-production.1_attributions.signatures`
     where tags like '%suspicious%'
     """
     signatures_df = (bqclient.query(signatures_query)
@@ -241,7 +241,7 @@ def get_tagged_data():
     
     callers_query = """
     select *
-    from `celo-testnet-production.analytics_attribution.callers`
+    from `celo-testnet-production.1_attributions.callers`
     where tags like '%suspicious%'
     """
     callers_df = (bqclient.query(callers_query)
@@ -251,7 +251,7 @@ def get_tagged_data():
 
 def write_df(input_df, table):
     project = 'celo-testnet-production'
-    dataset = 'analytics_attribution'
+    dataset = '1_attributions'
     temp_table = write_temp_table(input_df, project, dataset, table)
 
     query = ""

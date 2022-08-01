@@ -271,7 +271,7 @@ def explore(transactions_df):
 
 def write_df(transactions_df, table_name, schema):
     project_id = 'celo-testnet-production'
-    table_id = 'analytics_attribution.' + table_name
+    table_id = '1_attributions.' + table_name
 
     pandas_gbq.to_gbq(transactions_df, table_id, project_id=project_id, if_exists='append', table_schema=schema)
     print("successfully wrote data to {}".format(project_id + '.' + table_id))
